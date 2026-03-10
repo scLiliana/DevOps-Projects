@@ -1,56 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<settings xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 http://maven.apache.org/xsd/settings-1.2.0.xsd" xmlns="http://maven.apache.org/SETTINGS/1.2.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <servers>
-    <server>
-      <username>prdevop26@gmail.com</username>
-      <password>Admin123!</password>
-      <id>central</id>
-    </server>
-    <server>
-      <username>prdevop26@gmail.com</username>
-      <password>Admin123!</password>
-      <id>snapshots</id>
-    </server>
-  </servers>
-  <profiles>
-    <profile>
-      <repositories>
-        <repository>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-          <id>central</id>
-          <name>libs-release</name>
-          <url>https://edshopdpt8.jfrog.io/artifactory/libs-release</url>
-        </repository>
-        <repository>
-          <snapshots />
-          <id>snapshots</id>
-          <name>libs-snapshot</name>
-          <url>https://edshopdpt8.jfrog.io/artifactory/libs-snapshot</url>
-        </repository>
-      </repositories>
-      <pluginRepositories>
-        <pluginRepository>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-          <id>central</id>
-          <name>libs-release</name>
-          <url>https://edshopdpt8.jfrog.io/artifactory/libs-release</url>
-        </pluginRepository>
-        <pluginRepository>
-          <snapshots />
-          <id>snapshots</id>
-          <name>libs-snapshot</name>
-          <url>https://edshopdpt8.jfrog.io/artifactory/libs-snapshot</url>
-        </pluginRepository>
-      </pluginRepositories>
-      <id>artifactory</id>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <servers>
+        <!-- Credenciales para subir artefactos a JFrog -->
+        <server>
+            <id>jfrog-releases</id>
+            <username>${JFROG_USER}</username>
+            <password>${JFROG_PASS}</password>
+        </server>
+        <server>
+            <id>jfrog-snapshots</id>
+            <username>${JFROG_USER}</username>
+            <password>${JFROG_PASS}</password>
+        </server>
+    </servers>
+
+    <profiles>
+        <profile>
+            <id>jfrog</id>
+            <repositories>
+                <repository>
+                    <id>jfrog-releases</id>
+                    <name>JFrog Releases</name>
+                    <url>https://devopsproyect01.jfrog.io/artifactory/libs-release</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+                <repository>
+                    <id>jfrog-snapshots</id>
+
+                    <name>JFrog Snapshots</name>
+                    <url>https://devopsproyect01.jfrog.io/artifactory/libs-snapshot-local</url>
+                    <releases><enabled>false</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+            </repositories>
+        </profile>
+        <profile>
+        <id>jfrog</id>
+        <repositories>
+            <repository>
+                <id>jfrog-virtual</id>
+                <name>JFrog Virtual</name>
+                <url>https://edshopdpt8.jfrog.io/artifactory/maven-virtual</url>
+                <releases><enabled>true</enabled></releases>
+                <snapshots><enabled>false</enabled></snapshots>
+            </repository>
+        </repositories>
+        <pluginRepositories>
+            <pluginRepository>
+                <id>jfrog-virtual</id>
+                <name>JFrog Virtual Plugins</name>
+                <url>https://edshopdpt8.jfrog.io/artifactory/maven-virtual</url>
+                <releases><enabled>true</enabled></releases>
+                <snapshots><enabled>false</enabled></snapshots>
+            </pluginRepository>
+        </pluginRepositories>
     </profile>
-  </profiles>
-  <activeProfiles>
-    <activeProfile>artifactory</activeProfile>
-  </activeProfiles>
+    </profiles>
+
+    <activeProfiles>
+        <activeProfile>jfrog</activeProfile>
+    </activeProfiles>
+
 </settings>

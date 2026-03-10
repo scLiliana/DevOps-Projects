@@ -50,6 +50,6 @@ jobs:
           mvn clean verify \
             org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=scLiliana_DevOps-Projects \
-            -Dsonar.organization=TU_ORG_KEY \
+            -Dsonar.organization=scliliana \
             -Dsonar.token=$SONAR_TOKEN \
             -s settings.xml
