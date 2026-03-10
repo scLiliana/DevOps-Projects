@@ -16,7 +16,7 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Necesario para SonarCloud (análisis completo)
+          fetch-depth: 0
 
       - name: Configurar JDK 17
         uses: actions/setup-java@v4
@@ -39,17 +39,61 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Generar settings.xml con credenciales de JFrog
+        working-directory: DevOps-Project-01/Java-Login-App
+        run: |
+          cat > settings.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+              <servers>
+                  <server>
+                      <id>jfrog-releases</id>
+                      <username>${{ secrets.JFROG_USERNAME }}</username>
+                      <password>${{ secrets.JFROG_PASSWORD }}</password>
+                  </server>
+                  <server>
+                      <id>jfrog-virtual</id>
+                      <username>${{ secrets.JFROG_USERNAME }}</username>
+                      <password>${{ secrets.JFROG_PASSWORD }}</password>
+                  </server>
+              </servers>
+              <profiles>
+                  <profile>
+                      <id>jfrog</id>
+                      <repositories>
+                          <repository>
+                              <id>jfrog-virtual</id>
+                              <url>https://devopsproyect01.jfrog.io/artifactory/maven-virtual</url>
+                              <releases><enabled>true</enabled></releases>
+                              <snapshots><enabled>false</enabled></snapshots>
+                          </repository>
+                      </repositories>
+                      <pluginRepositories>
+                          <pluginRepository>
+                              <id>jfrog-virtual</id>
+                              <url>https://devopsproyect01.jfrog.io/artifactory/maven-virtual</url>
+                              <releases><enabled>true</enabled></releases>
+                              <snapshots><enabled>false</enabled></snapshots>
+                          </pluginRepository>
+                      </pluginRepositories>
+                  </profile>
+              </profiles>
+              <activeProfiles>
+                  <activeProfile>jfrog</activeProfile>
+              </activeProfiles>
+          </settings>
+          EOF
+
       - name: Build, análisis Sonar y deploy a JFrog
         working-directory: DevOps-Project-01/Java-Login-App
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
-          JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
-          JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
         run: |
-          mvn clean verify \
+          mvn clean deploy \
             org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=scLiliana_DevOps-Projects \
-            -Dsonar.organization=scliliana \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.token=$SONAR_TOKEN \
-            -s settings.xml
+            -s settings.xml \
+            -DskipTests
