@@ -16,7 +16,15 @@
 	<description>DPT DevOps project for Spring Boot</description>
 
 	<properties>
-		<java.version>11</java.version>
+		<java.version>17</java.version>
+		    <!-- Java version -->
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+
+		<!-- SonarCloud -->
+		<sonar.projectKey>TU_PROJECT_KEY</sonar.projectKey>
+		<sonar.organization>TU_ORG_KEY</sonar.organization>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 	</properties>
 
 	<dependencies>
@@ -70,9 +78,10 @@
 	<build>
 		<plugins>
 			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>4.0.0.4121</version>
+        	</plugin>
 		</plugins>
 	</build>
 <distributionManagement>
