@@ -50,7 +50,7 @@
 		<dependency>
 			<groupId>mysql</groupId>
 			<artifactId>mysql-connector-java</artifactId>
-			<version>8.0.33</version>
+			    <version>8.0.33</version>
 			<scope>runtime</scope>
 		</dependency>
 		
@@ -87,10 +87,15 @@
 	</build>
 <distributionManagement>
     <repository>
-        <id>central</id>
-        <name>a0nymgefaiwwu-artifactory-primary-0-releases</name>
-        <url>https://edshopdpt8.jfrog.io/artifactory/libs-release-local</url>
+        <id>jfrog-releases</id>
+        <name>JFrog Releases</name>
+        <url>https://devopsproyect01.jfrog.io/artifactory/libs-release-local</url>
     </repository>
-</distributionManagement> 
+    <snapshotRepository>
+        <id>jfrog-snapshots</id>
+        <name>JFrog Snapshots</name>
+        <url>https://devopsproyect01.jfrog.io/artifactory/libs-snapshot-local</url>
+    </snapshotRepository>
+</distributionManagement>
 
 </project>
