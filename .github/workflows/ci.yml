@@ -16,13 +16,13 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Necesario para SonarCloud (análisis completo)
+          fetch-depth: 0
 
-      - name: Configurar JDK 11
+      - name: Configurar JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          distribution: 'temurin'
+          java-version: '17'
+          distribution: 'zulu'
           cache: maven
 
       - name: Cache de paquetes SonarCloud
@@ -32,16 +32,24 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
+      - name: Cache de paquetes Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
       - name: Build, análisis Sonar y deploy a JFrog
+        working-directory: DevOps-Project-01/Java-Login-App
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
           JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
           JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
         run: |
           mvn clean verify \
             org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=TU_PROJECT_KEY \
+            -Dsonar.projectKey=scLiliana_DevOps-Projects \
             -Dsonar.organization=TU_ORG_KEY \
-            -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=$SONAR_TOKEN \
             -s settings.xml
