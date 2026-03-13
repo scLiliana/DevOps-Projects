@@ -7,13 +7,13 @@
     <servers>
         <server>
             <id>jfrog-releases</id>
-            <username>TU_JFROG_EMAIL</username>
-            <password>TU_JFROG_ACCESS_TOKEN</password>
+            <username>${JFROG_USERNAME}</username>
+            <password>${JFROG_PASSWORD}</password>
         </server>
         <server>
             <id>jfrog-virtual</id>
-            <username>TU_JFROG_EMAIL</username>
-            <password>TU_JFROG_ACCESS_TOKEN</password>
+            <username>${JFROG_USERNAME}</username>
+            <password>${JFROG_ACCESS_TOKEN}</password>
         </server>
     </servers>
 
