@@ -37,13 +37,13 @@ USO:
 
 import aws_cdk as cdk
 
-from stacks.imagebuilder_stack import ImageBuilderStack
-from stacks.networking_stack import NetworkingStack
-from stacks.security_stack import SecurityStack
-from stacks.storage_stack import StorageStack
-from stacks.database_stack import DatabaseStack
-from stacks.backend_stack import BackendStack
-from stacks.frontend_stack import FrontendStack
+from proyect_cdk.imagebuilder_stack import ImageBuilderStack
+from proyect_cdk.networking_stack import NetworkingStack
+from proyect_cdk.security_stack import SecurityStack
+from proyect_cdk.storage_stack import StorageStack
+from proyect_cdk.database_stack import DatabaseStack
+from proyect_cdk.backend_stack import BackendStack
+from proyect_cdk.frontend_stack import FrontendStack
 
 # ── CONFIGURACIÓN — edita estos valores antes de desplegar ────────────────────
 config = {

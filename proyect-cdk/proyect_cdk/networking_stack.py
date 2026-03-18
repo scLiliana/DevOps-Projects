@@ -43,7 +43,7 @@ class NetworkingStack(Stack):
                     map_public_ip_on_launch=True,
                 ),
                 # Subnets privadas - Nginx ASG, Tomcat ASG, NBL privado
-                ec2.SubnetConfigurartion(
+                ec2.SubnetConfiguration(
                     name="Private",
                     subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                     cidr_mask=24,
@@ -70,7 +70,7 @@ class NetworkingStack(Stack):
         #-- VPC Flow Logs ----------------------------------------------
         self.vpc.add_flow_log(
             "VpcFlowLog",
-            destination = ec2.FlowLogaDestination.to_cloud_watch_logs(),
+            destination = ec2.FlowLogDestination.to_cloud_watch_logs(),
             traffic_type = ec2.FlowLogTrafficType.REJECT,
         )
 

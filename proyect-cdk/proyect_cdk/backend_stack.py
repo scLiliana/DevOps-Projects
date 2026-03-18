@@ -118,12 +118,12 @@ class BackendStack(Stack):
                 ],
             )
             # ── Target Group TCP:8080 ─────────────────────────────────────────────
-            self.tomcat_tg = elbv2.ApplicationTargetGroup(
+            self.tomcat_tg = elbv2.NetworkTargetGroup(      # ← Application → Network
                 self, "TomcatTG",
                 target_group_name="tomcat-tg",
                 vpc=vpc,
                 port=8080,
-                protocol=elbv2.ApplicationProtocol.TCP,
+                protocol=elbv2.Protocol.TCP,
                 target_type=elbv2.TargetType.INSTANCE,
                 health_check=elbv2.HealthCheck(
                     protocol=elbv2.Protocol.TCP,
@@ -165,13 +165,13 @@ class BackendStack(Stack):
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
                 ),
-                health_check=autoscaling.HealthCheck.elb(
-                    grace=Duration.minutes(5)
+                health_checks=autoscaling.HealthChecks.ec2(
+                    grace_period=Duration.minutes(5)
                 ),
             )
 
             # Registrar ASG en Target Group
-            self.tomcat_asg.attach_to_application_target_group(self.tomcat_tg)
+            self.tomcat_asg.attach_to_network_target_group(self.tomcat_tg)
 
             # Scaling policy - escalar cuando CPU > 70%
             self.tomcat_asg.scale_on_cpu_utilization(

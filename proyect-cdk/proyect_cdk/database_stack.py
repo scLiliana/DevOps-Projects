@@ -79,7 +79,7 @@ class DatabaseStack(Stack):
             security_groups=[database_sg],
             credentials=rds.Credentials.from_password(
                 username="admin",
-                password=SecretValue.plain_text(db_password),
+                password=SecretValue.unsafe_plain_text(db_password),
             ),
             database_name="UserDB",
             multi_az=True,
@@ -89,7 +89,7 @@ class DatabaseStack(Stack):
             deletion_protection=False,
             removal_policy=RemovalPolicy.DESTROY,
             parameter_group=param_group,
-            publicily_accessible=False,
+            publicly_accessible=False,
             cloudwatch_logs_exports=["error", "slowquery"],
             enable_performance_insights=True,
         )

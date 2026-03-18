@@ -6,6 +6,7 @@ from aws_cdk import (
     Stack,
     CfnOutput,
     RemovalPolicy,
+    Duration,
     aws_s3 as s3,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cloudwatch_actions,
@@ -27,6 +28,7 @@ class StorageStack(Stack):
             self,
             scope: Construct,
             construct_id: str,
+            alert_email: str, 
             **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -41,7 +43,7 @@ class StorageStack(Stack):
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,  # Bloquear acceso público
             encryption=s3.BucketEncryption.S3_MANAGED,  # Encriptación gestionada por S3
             lifecycle_rules=[
-                s3.lifecycle.Rule(
+                s3.LifecycleRule(
                     # Mover logs a Infrequent Access después de 30 días
                     id="MoveToIA",
                     transitions=[
@@ -51,14 +53,14 @@ class StorageStack(Stack):
                         ),
                     ],  
                 ),
-                s3.lifecycle.Rule(
+                s3.LifecycleRule(
                     # Eliminar versiones antiguas despues de 90 días
                     id="DeleteOldVersions",
                     noncurrent_version_expiration=Duration.days(90),
                 ),
 
                 # Eliminar logs después de 365 días
-                s3.lifecycle.Rule(
+                s3.LifecycleRule(
                         id="ExpireLogs",
                         expiration=Duration.days(365),
                     ),
@@ -67,8 +69,6 @@ class StorageStack(Stack):
 
         # Crear carpetas base dentro del bucket
         # (S3 no tiene carpetas reales — se crean poniendo un objeto vacío)
-        self.bucket.put_object(Key="tomcat-logs/")
-        self.bucket.put_object(Key="artifacts/")
 
         
         # ── SNS Topic para alertas ────────────────────────────────────────────

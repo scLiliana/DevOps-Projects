@@ -77,7 +77,7 @@ class SecurityStack(Stack):
         )   
 
         # ── BackendSG — Tomcat ────────────────────────────────────────────────
-        self.bastion_sg = ec2.SecurityGroup(
+        self.backend_sg = ec2.SecurityGroup(   # ← era self.bastion_sg por error
             self, "BackendSG",
             security_group_name="BackendSG",
             vpc=vpc,
@@ -86,22 +86,22 @@ class SecurityStack(Stack):
         )
 
         # Puerto 8080 solo desde FrontendSG
-        self.bastion_sg.add_ingress_rule(
-            peer = self.frontend_sg,
-            connection = ec2.Port.tcp(8080),
+        self.backend_sg.add_ingress_rule(      # ← era self.bastion_sg por error
+            peer=self.frontend_sg,
+            connection=ec2.Port.tcp(8080),
             description="Tomcat desde Nginx (FrontendSG)",
         )
 
         # Puerto 8080 desde toda la VPC (para el NLB interno)
         self.backend_sg.add_ingress_rule(
-            peer=self.frontend_sg,
+            peer=ec2.Peer.ipv4(vpc.vpc_cidr_block),  # ← peer debe ser un CIDR, no frontend_sg
             connection=ec2.Port.tcp(8080),
-            description="Tomcat desde VPC (para NLB interno)",
+            description="Tomcat desde VPC (NLB interno)",
         )
 
         # SSH desde BastionSG
         self.backend_sg.add_ingress_rule(
-            peer = self.bastion_sg,
+            peer=self.bastion_sg,
             connection=ec2.Port.tcp(22),
             description="SSH desde Bastion",
         )
@@ -179,7 +179,7 @@ class SecurityStack(Stack):
         # Instance Profile - wrapper del Role para asignarlo a EC2
         self.instance_profile = iam.CfnInstanceProfile(
             self, "EC2AppProfile",
-            instance_profile="EC2AppProfile",
+            instance_profile_name="EC2AppProfile",
             roles=[self.ec2_role.role_name],
         )
 

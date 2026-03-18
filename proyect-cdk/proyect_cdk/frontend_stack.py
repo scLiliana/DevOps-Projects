@@ -148,8 +148,8 @@ class FrontendStack(Stack):
             vpc_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
             ),
-            health_check=autoscaling.HealthCheck.elb(
-                grace=Duration.minutes(3)
+            health_checks=autoscaling.HealthChecks.ec2(
+                grace_period=Duration.minutes(5)
             ),
         )
 
