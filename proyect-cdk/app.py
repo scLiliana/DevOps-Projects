@@ -37,37 +37,46 @@ USO:
 
 import aws_cdk as cdk
 
-from proyect_cdk.imagebuilder_stack import ImageBuilderStack
 from proyect_cdk.networking_stack import NetworkingStack
 from proyect_cdk.security_stack import SecurityStack
 from proyect_cdk.storage_stack import StorageStack
 from proyect_cdk.database_stack import DatabaseStack
-from proyect_cdk.backend_stack import BackendStack
-from proyect_cdk.frontend_stack import FrontendStack
+# from proyect_cdk.backend_stack import BackendStack
+# from proyect_cdk.frontend_stack import FrontendStack
+from proyect_cdk.targetgroups_stack import TargetGroupsStack
+from proyect_cdk.nlb_stack import NlbStack
+from proyect_cdk.templates_stack import LaunchTemplateStack
+from proyect_cdk.asg_stack import ASGStack
+
+
 
 # ── CONFIGURACIÓN — edita estos valores antes de desplegar ────────────────────
 config = {
     # Tu IP pública en formato CIDR (para acceso SSH al Bastion)
     # Obtenerla con: curl https://checkip.amazonaws.com
-    "your_ip": "0.0.0.0/0",            # ⚠️ Reemplaza con tu IP real: "X.X.X.X/32"
+    "your_ip": "0.0.0.0/32",            # ⚠️ Reemplaza con tu IP real: "X.X.X.X/32"
 
     # Email para recibir alertas de CloudWatch
-    "alert_email": "tu@email.com",      # ⚠️ Reemplaza con tu email real
+    "alert_email": "email@email.mx",      # ⚠️ Reemplaza con tu email real
 
     # Contraseña del usuario admin de RDS
-    "db_password": "TuPasswordSegura123!",  # ⚠️ Cambia esto
+    "db_password": "contraseñaSegura",  # ⚠️ Cambia esto
 
     # IDs de las Golden AMIs creadas en el Paso 2
     # Obtenerlos con: aws ec2 describe-images --owners self --query "Images[*].[Name,ImageId]"
-    "tomcat_ami_id": "ami-XXXXXXXXXXXXXXXXX",   # ⚠️ Reemplaza con tu TomcatGoldenAMI
-    "nginx_ami_id":  "ami-XXXXXXXXXXXXXXXXX",   # ⚠️ Reemplaza con tu NginxGoldenAMI
+    "tomcat_ami_id": "ami-070f020fb291e29be",  # TomcatGoldenAMI
+    "nginx_ami_id":  "ami-0552f22def9a8f143",   # ⚠️ Reemplaza con tu NginxGoldenAMI
 
     # Credenciales de JFrog para descargar el WAR
-    "jfrog_user":  "tu@email.com",      # ⚠️ Reemplaza con tu email de JFrog
-    "jfrog_token": "XXXXXXXXXXXXXXXXX", # ⚠️ Reemplaza con tu Access Token de JFrog
+    "jfrog_user":  "email@email.mx",      # ⚠️ Reemplaza con tu email de JFrog
+    "jfrog_token": "XXXXXXXXXXXXXXX", # ⚠️ Reemplaza con tu Access Token de JFrog
 
     # Región y cuenta AWS
     "region": "us-east-1",
+
+    # Launch Templates (Por si se crean de forma independiente antes de desplegar ASGs)
+    "tomcat_launch_template_id": "lt-XXXXXXXXXXXXXXXX",  # ⚠️ Reemplaza con tu TomcatLaunchTemplateId
+    "nginx_launch_template_id":  "lt-XXXXXXXXXXXXXXXX",  # ⚠️ Reemplaza con tu NginxLaunchTemplateId
 }
 
 # ── CDK App ───────────────────────────────────────────────────────────────────
@@ -77,11 +86,6 @@ env = cdk.Environment(
     account=app.node.try_get_context("account") or None,  # usa la cuenta del CLI
     region=config["region"],
 )
-
-# Stack 0 — EC2 Image Builder (Golden AMIs)
-# Después de desplegarlo, ejecutar los pipelines manualmente en la consola AWS
-# y anotar los AMI IDs resultantes en el bloque config de arriba
-image_builder = ImageBuilderStack(app, "ImageBuilderStack", env=env)
 
 # Stack 1 — VPC y Networking
 networking = NetworkingStack(app, "NetworkingStack", env=env)
@@ -94,7 +98,7 @@ security = SecurityStack(
     env=env,
 )
 security.add_dependency(networking)
-
+  
 # Stack 3 — S3 y CloudWatch
 storage = StorageStack(
     app, "StorageStack",
@@ -113,40 +117,92 @@ database = DatabaseStack(
 )
 database.add_dependency(security)
 
-# Stack 5 — Tomcat ASG + NLB interno
-# ⚠️ Requiere el endpoint de RDS — se obtiene después de desplegar DatabaseStack
-# Si despliegas por primera vez usa: cdk deploy NetworkingStack SecurityStack StorageStack DatabaseStack
-# Luego obtén el endpoint con: aws rds describe-db-instances --db-instance-identifier prod-mysql --query "DBInstances[0].Endpoint.Address" --output text
-rds_endpoint = app.node.try_get_context("rds_endpoint") or "PENDING"
+# Stack 5 — Target Groups para NLBs
+target_groups = TargetGroupsStack(
+    app, "TargetGroupsStack",
+    vpc=networking.vpc,
+    env=env,
+)
+target_groups.add_dependency(networking)  
 
-backend = BackendStack(
-    app, "BackendStack",
+# Stack 6 — NLBs (requiere Target Groups)
+nlbs=NlbStack(
+    app, "NlbStack",
+    vpc=networking.vpc,
+    tomcat_tg=target_groups.tomcat_tg,
+    nginx_tg=target_groups.nginx_tg,
+    env=env,
+)
+nlbs.add_dependency(target_groups)
+
+# Stack 7 — Launch Templates para ASGs (requiere RDS y NLBs)
+launch_templates = LaunchTemplateStack(
+    app, "LaunchTemplateStack",
     vpc=networking.vpc,
     backend_sg=security.backend_sg,
-    instance_profile=security.instance_profile,
-    tomcat_ami_id=config["tomcat_ami_id"],
-    jfrog_user=config["jfrog_user"],
-    jfrog_token=config["jfrog_token"],
-    rds_endpoint=rds_endpoint,
-    db_password=config["db_password"],
-    env=env,
-)
-backend.add_dependency(database)
-
-# Stack 6 — Nginx ASG + NLB público
-# ⚠️ Requiere el DNS del NLB interno — se obtiene después de desplegar BackendStack
-# Obtenerlo con: aws elbv2 describe-load-balancers --names private-nlb --query "LoadBalancers[0].DNSName" --output text
-private_nlb_dns = app.node.try_get_context("private_nlb_dns") or "PENDING"
-
-frontend = FrontendStack(
-    app, "FrontendStack",
-    vpc=networking.vpc,
     frontend_sg=security.frontend_sg,
     instance_profile=security.instance_profile,
+    tomcat_ami_id=config["tomcat_ami_id"],
     nginx_ami_id=config["nginx_ami_id"],
-    private_nlb_dns=private_nlb_dns,
+    jfrog_user=config["jfrog_user"],
+    jfrog_token=config["jfrog_token"],
+    rds_endpoint=database.db_instance.db_instance_endpoint_address,
+    db_password=config["db_password"],
+    private_nlb_dns=nlbs.private_nlb_dns,
     env=env,
 )
-frontend.add_dependency(backend)
+launch_templates.add_dependency(database)
+launch_templates.add_dependency(nlbs)       
+
+asg = ASGStack(
+    app, "ASGStack",
+    vpc=networking.vpc,
+    backend_sg=security.backend_sg,
+    frontend_sg=security.frontend_sg,
+    launch_template_nginx=launch_templates.launch_template_nginx,
+    #launch_template_nginx_id=config["nginx_launch_template_id"],
+    launch_template_tomcat=launch_templates.launch_template_tomcat,
+    #launch_template_tomcat_id=config["tomcat_launch_template_id"],
+    env=env,
+)
+asg.add_dependency(security)
+asg.add_dependency(launch_templates)
+
+
+# # Stack 5 — Tomcat ASG + NLB interno
+# # ⚠️ Requiere el endpoint de RDS — se obtiene después de desplegar DatabaseStack
+# # Si despliegas por primera vez usa: cdk deploy NetworkingStack SecurityStack StorageStack DatabaseStack
+# # Luego obtén el endpoint con: aws rds describe-db-instances --db-instance-identifier prod-mysql --query "DBInstances[0].Endpoint.Address" --output text
+# rds_endpoint = app.node.try_get_context("rds_endpoint") or "PENDING"
+
+# backend = BackendStack(
+#     app, "BackendStack",
+#     vpc=networking.vpc,
+#     backend_sg=security.backend_sg,
+#     instance_profile=security.instance_profile,
+#     tomcat_ami_id=config["tomcat_ami_id"],
+#     jfrog_user=config["jfrog_user"],
+#     jfrog_token=config["jfrog_token"],
+#     rds_endpoint=rds_endpoint,
+#     db_password=config["db_password"],
+#     env=env,
+# )
+# backend.add_dependency(database)
+
+# # Stack 6 — Nginx ASG + NLB público
+# # ⚠️ Requiere el DNS del NLB interno — se obtiene después de desplegar BackendStack
+# # Obtenerlo con: aws elbv2 describe-load-balancers --names private-nlb --query "LoadBalancers[0].DNSName" --output text
+# private_nlb_dns = app.node.try_get_context("private_nlb_dns") or "PENDING"
+
+# frontend = FrontendStack(
+#     app, "FrontendStack",
+#     vpc=networking.vpc,
+#     frontend_sg=security.frontend_sg,
+#     instance_profile=security.instance_profile,
+#     nginx_ami_id=config["nginx_ami_id"],
+#     private_nlb_dns=private_nlb_dns,
+#     env=env,
+# )
+# frontend.add_dependency(backend)
 
 app.synth()

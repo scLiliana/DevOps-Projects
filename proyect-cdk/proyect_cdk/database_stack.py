@@ -1,5 +1,5 @@
 from aws_cdk import (
-    Stack, 
+    Stack,
     CfnOutput,
     RemovalPolicy,
     Duration,
@@ -20,23 +20,22 @@ class DatabaseStack(Stack):
     """
 
     def __init__(
-            self,
-            scope: Construct,
-            construct_id: str,
-            vpc: ec2.Vpc,
-            database_sg: ec2.SecurityGroup,
-            db_password: str,
-            **kwargs
-        )-> None:
+        self,
+        scope: Construct,
+        construct_id: str,
+        vpc: ec2.Vpc,
+        database_sg: ec2.SecurityGroup,
+        db_password: str,   # Contraseña del usuario admin
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # ── DB Subnet Group ───────────────────────────────────────────────────
         # Usa las subnets aisladas (sin acceso a internet)
-
         subnet_group = rds.SubnetGroup(
             self, "DBSubnetGroup",
             subnet_group_name="mydbsubnetgroup",
-            description="Subnet group for RDS MySQL Multi-AZ",
+            description="Subnet group para RDS MySQL Multi-AZ",
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
@@ -60,7 +59,7 @@ class DatabaseStack(Stack):
             },
         )
 
-        # ── RDS MySQL Multi-AZ ───────────────────────────────────────────────
+        # ── RDS MySQL Multi-AZ ────────────────────────────────────────────────
         self.db_instance = rds.DatabaseInstance(
             self, "ProdMySQL",
             instance_identifier="prod-mysql",
@@ -69,7 +68,7 @@ class DatabaseStack(Stack):
             ),
             instance_type=ec2.InstanceType.of(
                 ec2.InstanceClass.T3,
-                ec2.InstanceSize.MICRO ,
+                ec2.InstanceSize.MICRO,
             ),
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(
@@ -81,34 +80,32 @@ class DatabaseStack(Stack):
                 username="admin",
                 password=SecretValue.unsafe_plain_text(db_password),
             ),
-            database_name="UserDB",
-            multi_az=True,
-            allocated_storage=20,
-            max_allocated_storage=100,
+            database_name="UserDB",             # crea la BD automáticamente
+            multi_az=True,                      # Multi-AZ para alta disponibilidad
+            allocated_storage=20,               # GB
+            max_allocated_storage=100,          # autoscaling de almacenamiento
+            storage_encrypted=True,
             backup_retention=Duration.days(1),
-            deletion_protection=False,
+            deletion_protection=False,          # cambiar a True en producción real
             removal_policy=RemovalPolicy.DESTROY,
             parameter_group=param_group,
             publicly_accessible=False,
             cloudwatch_logs_exports=["error", "slowquery"],
-            enable_performance_insights=True,
+            enable_performance_insights=False,
         )
 
         # ── Outputs ───────────────────────────────────────────────────────────
-        CfnOutput(
-            self, "RDSEndpoint",
+        CfnOutput(self, "RDSEndpoint",
             value=self.db_instance.db_instance_endpoint_address,
-            description="Endpoint del RDS MySQL Multi-AZ",
+            description="Endpoint del RDS MySQL",
             export_name="RDSEndpoint",
         )
-        CfnOutput(
-            self, "RDSPort",
-            value=str(self.db_instance.db_instance_endpoint_port),
-            description="Port del RDS MySQL Multi-AZ",
+        CfnOutput(self, "RDSPort",
+            value=self.db_instance.db_instance_endpoint_port,
+            description="Puerto del RDS MySQL",
             export_name="RDSPort",
         )
-        CfnOutput(
-            self, "RDSDatabaseName",
+        CfnOutput(self, "RDSDatabaseName",
             value="UserDB",
             description="Nombre de la base de datos",
             export_name="RDSDatabaseName",

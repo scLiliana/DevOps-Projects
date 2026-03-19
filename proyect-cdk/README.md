@@ -68,15 +68,16 @@ cdk bootstrap aws://$ACCOUNT_ID/us-east-1
 cdk list
 ```
 
-Debe mostrar los 7 stacks:
+Debe mostrar los  stacks:
 ```
-ImageBuilderStack
 NetworkingStack
 SecurityStack
 StorageStack
 DatabaseStack
-BackendStack
-FrontendStack
+TargetGroupsStack
+NlbStack
+LaunchTemplateStack
+ASGStack
 ```
 
 ---
@@ -104,6 +105,10 @@ config = {
     # Credenciales de JFrog para descargar el WAR
     "jfrog_user":   "tu@email.com",
     "jfrog_token":  "XXXXXXXXXXXXXXXXX",
+
+    # Launch Templates (Por si se crean de forma independiente antes de desplegar ASGs)
+    "tomcat_launch_template_id": "lt-XXXXXXXXXXXXXXXX",  # ⚠️ Reemplaza con tu TomcatLaunchTemplateId
+    "nginx_launch_template_id":  "lt-XXXXXXXXXXXXXXXX",  # ⚠️ Reemplaza con tu NginxLaunchTemplateId
 }
 ```
 
@@ -111,34 +116,8 @@ config = {
 
 ## Despliegue paso a paso
 
-### Fase 0 — Crear las Golden AMIs con EC2 Image Builder
-
-Este paso crea los pipelines que generan las AMIs automáticamente.
-
 ```bash
-# Desplegar el stack de Image Builder
-cdk deploy ImageBuilderStack
-```
-
-Una vez desplegado, ejecuta los pipelines desde la consola AWS:
-
-```
-AWS Console → EC2 Image Builder → Image pipelines
-```
-
-Ejecutar en este orden — cada uno tarda ~15-20 min:
-
-| Orden | Pipeline | AMI resultante |
-|---|---|---|
-| 1 | `DevOpsProject01-Base-Pipeline` | `GlobalAMI-Base` |
-| 2 | `DevOpsProject01-Nginx-Pipeline` | `NginxGoldenAMI` |
-| 3 | `DevOpsProject01-Tomcat-Pipeline` | `TomcatGoldenAMI` |
-| 4 | `DevOpsProject01-Maven-Pipeline` | `MavenGoldenAMI` |
-
-Para ejecutar cada pipeline: seleccionarlo → **Actions → Run pipeline**
-
-```bash
-# Verificar que los pipelines terminaron y obtener los AMI IDs
+# Obtener los AMI IDs
 aws ec2 describe-images \
     --owners self \
     --filters "Name=tag:Project,Values=DevOps-Project-01" \
@@ -199,17 +178,25 @@ RDS_ENDPOINT=$(aws rds describe-db-instances \
 echo "RDS Endpoint: $RDS_ENDPOINT"
 ```
 
+
+Modificar el archivo `DevOps-Project-01/Java-Login-App/src/main/resources/application.properties`
+con el $RDS_ENDPOINT,  y el nombre de la base de datos UserDB
+
+y hacer el commit en GitHub (Compilar)
 ---
 
-### Fase 3 — Backend (Tomcat)
+### Fase 3 — 
 
 ```bash
-# Stack 5: Tomcat ASG + NLB interno
-cdk deploy BackendStack \
-    -c rds_endpoint=$RDS_ENDPOINT
+# Stack 5: Crear los target group
+
+cdk deploy TargetGroupsStack
 ```
 
----
+```bash
+# Stack 6: Crear los Network Load Balancer
+cdk deploy NlbStack
+```
 
 ### Fase 4 — Obtener el DNS del NLB interno
 
@@ -223,30 +210,27 @@ PRIVATE_NLB_DNS=$(aws elbv2 describe-load-balancers \
 echo "Private NLB DNS: $PRIVATE_NLB_DNS"
 ```
 
----
-
-### Fase 5 — Frontend (Nginx)
-
-```bash
-# Stack 6: Nginx ASG + NLB público
-cdk deploy FrontendStack \
-    -c private_nlb_dns=$PRIVATE_NLB_DNS
-```
+Modificar el archivo o la configuración en el launch template `ngnix-userdata.sh` con el $PRIVATE_NLB_DNS.
 
 ---
 
-### Fase 6 — Obtener la URL de la aplicación
+# Fase 5 - Crear Launch Templates y ASG
 
 ```bash
-APP_URL=$(aws elbv2 describe-load-balancers \
-    --names public-nlb \
-    --query "LoadBalancers[0].DNSName" \
-    --output text \
-    --region us-east-1)
-
-echo "Aplicación disponible en: http://$APP_URL/pages/login.jsp"
+# Crear las launch templates
+cdk deploy LaunchTemplateStack
 ```
-
+En caso de crear las launch templates manualmente, entonces agregar los valores a el area de config en app.py y comentar el ASGStack de la siguiente manera 
+```python
+asg = ASGStack(
+    #...
+    #launch_template_nginx=launch_templates.launch_template_nginx,
+    launch_template_nginx_id=config["nginx_launch_template_id"],
+    #launch_template_tomcat=launch_templates.launch_template_tomcat,
+    launch_template_tomcat_id=config["tomcat_launch_template_id"],
+    #...
+)
+```
 ---
 
 ## Despliegue completo (todos los stacks a la vez)
@@ -317,17 +301,6 @@ aws cloudformation list-stacks \
     --query "StackSummaries[*].[StackName,StackStatus]" \
     --output table
 
-# Ver pipelines de Image Builder
-aws imagebuilder list-image-pipelines \
-    --query "imagePipelineList[*].[name,status,dateLastRun]" \
-    --output table
-
-# Ver AMIs creadas por Image Builder
-aws ec2 describe-images \
-    --owners self \
-    --filters "Name=tag:Project,Values=DevOps-Project-01" \
-    --query "Images[*].[Name,ImageId,CreationDate]" \
-    --output table
 ```
 
 ---
@@ -347,6 +320,10 @@ devops-project-01-cdk/
     ├── security_stack.py           ← Stack 2: Security Groups + IAM
     ├── storage_stack.py            ← Stack 3: S3 + CloudWatch
     ├── database_stack.py           ← Stack 4: RDS MySQL
-    ├── backend_stack.py            ← Stack 5: Tomcat ASG + NLB interno
-    └── frontend_stack.py           ← Stack 6: Nginx ASG + NLB público
+    ├── targetgroups_stack.py       ← Stack 5: Target Groups (Nginx + Tomcat)
+    ├── nlb_stack.py.               ← Stack 6: Network Load Balancers + Listeners (Nginx + Tomcat)
+    ├── templates_stack.py          ← Stack 7: Launch Templates (Nginx + Tomcat)
+    ├── asg_stack.py                ← Stack 8: Auto Scaling Groups (Nginx + Tomcat)
+    ├── backend_stack.py            ← Stack : Tomcat ASG + NLB interno
+    └── frontend_stack.py           ← Stack : Nginx ASG + NLB público
 ```
