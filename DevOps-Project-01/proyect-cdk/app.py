@@ -54,7 +54,7 @@ from proyect_cdk.asg_stack import ASGStack
 config = {
     # Tu IP pública en formato CIDR (para acceso SSH al Bastion)
     # Obtenerla con: curl https://checkip.amazonaws.com
-    "your_ip": "0.0.0.0/32",            # ⚠️ Reemplaza con tu IP real: "X.X.X.X/32"
+    "your_ip": "148.216.54.186/32",            # ⚠️ Reemplaza con tu IP real: "X.X.X.X/32"
 
     # Email para recibir alertas de CloudWatch
     "alert_email": "email@email.mx",      # ⚠️ Reemplaza con tu email real
@@ -151,21 +151,23 @@ launch_templates = LaunchTemplateStack(
     private_nlb_dns=nlbs.private_nlb_dns,
     env=env,
 )
+launch_templates.add_dependency(networking)
+launch_templates.add_dependency(security)
 launch_templates.add_dependency(database)
 launch_templates.add_dependency(nlbs)       
 
 asg = ASGStack(
     app, "ASGStack",
     vpc=networking.vpc,
-    backend_sg=security.backend_sg,
-    frontend_sg=security.frontend_sg,
     launch_template_nginx=launch_templates.launch_template_nginx,
     #launch_template_nginx_id=config["nginx_launch_template_id"],
     launch_template_tomcat=launch_templates.launch_template_tomcat,
     #launch_template_tomcat_id=config["tomcat_launch_template_id"],
+    nginx_tg=target_groups.nginx_tg,    
+    tomcat_tg=target_groups.tomcat_tg,  
     env=env,
 )
-asg.add_dependency(security)
+asg.add_dependency(target_groups)
 asg.add_dependency(launch_templates)
 
 

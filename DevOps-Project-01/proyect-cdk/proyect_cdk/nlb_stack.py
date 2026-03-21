@@ -41,6 +41,7 @@ class NlbStack(Stack):
             subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
             ),
         )
+        self.private_nlb_dns = self.backend_nlb.load_balancer_dns_name
 
         # Listener TCP:8080 en NLB
         self.backend_nlb.add_listener(

@@ -22,8 +22,10 @@ class ASGStack(Stack):
         scope: Construct,
         construct_id: str,
         vpc: ec2.Vpc,
-        launch_template_nginx: ec2.CfnLaunchTemplate,
-        launch_template_tomcat: ec2.CfnLaunchTemplate,
+        launch_template_nginx: ec2.LaunchTemplate,   
+        launch_template_tomcat: ec2.LaunchTemplate,  
+        nginx_tg: elbv2.NetworkTargetGroup,          
+        tomcat_tg: elbv2.NetworkTargetGroup,         
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -46,7 +48,7 @@ class ASGStack(Stack):
         )
 
         # Registrar el ASG en el Target Group
-        self.nginx_asg.attach_to_network_target_group(self.nginx_tg)
+        self.nginx_asg.attach_to_network_target_group(nginx_tg)
 
         # Scaling policy — escalar cuando CPU > 70%
         self.nginx_asg.scale_on_cpu_utilization(
@@ -72,7 +74,7 @@ class ASGStack(Stack):
         )
 
             # Registrar ASG en Target Group
-        self.tomcat_asg.attach_to_network_target_group(self.tomcat_tg)
+        self.tomcat_asg.attach_to_network_target_group(tomcat_tg)
 
             # Scaling policy - escalar cuando CPU > 70%
         self.tomcat_asg.scale_on_cpu_utilization(
