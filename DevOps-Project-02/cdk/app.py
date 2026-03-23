@@ -12,13 +12,12 @@ from stacks.asg_stack import ASGStack
 from stacks.route53_stack import Route53Stack
 
 
-config = {
-    "your_ip": "0.0.0.0/32",  # Reemplaza con tu IP pública en formato CIDR (ejemplo: 
+config = {"your_ip": "0.0.0.0/32",  # Reemplaza con tu IP pública en formato CIDR (ejemplo: 
     
     "region": "us-east-1",  # Reemplaza con tu región preferida
 
-    "global_ami_id": "ami-XXXXXXXXXXXXXXX",  # Reemplaza con el ID de tu Golden AMI
-    "key_pair_name": "KeyPair",
+    "global_ami_id": "ami-XXXXXXXXX",  # Reemplaza con el ID de tu Golden AMI
+    "key_pair_name": "DevOpsKeyPair",
 
     "domain_name": "dominio.mx",  # Reemplaza con tu dominio registrado en Route53
 }

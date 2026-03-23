@@ -54,16 +54,45 @@ class SecurityStack(Stack):
             description="Security group for Application Load Balancer",
             allow_all_outbound=True,
         )
-        self.alb_sg.add_ingress_rule(
-            peer=ec2.Peer.any_ipv4(),
-            connection=ec2.Port.tcp(80),
-            description="HTTP desde internet",
-        )
-        self.alb_sg.add_ingress_rule(
-            peer=ec2.Peer.any_ipv4(),
-            connection=ec2.Port.tcp(443),
-            description="HTTPS desde internet",
-        )
+        # self.alb_sg.add_ingress_rule(
+        #     peer=ec2.Peer.any_ipv4(),
+        #     connection=ec2.Port.tcp(80),
+        #     description="HTTP desde internet",
+        # )
+        # self.alb_sg.add_ingress_rule(
+        #     peer=ec2.Peer.any_ipv4(),
+        #     connection=ec2.Port.tcp(443),
+        #     description="HTTPS desde internet",
+        # )
+        cloudflare_ip_ranges = [
+            "173.245.48.0/20",
+            "103.21.244.0/22",
+            "103.22.200.0/22",
+            "103.31.4.0/22",
+            "141.101.64.0/18",
+            "108.162.192.0/18", 
+            "190.93.240.0/20",
+            "188.114.96.0/20",
+            "197.234.240.0/22",
+            "198.41.128.0/17",
+            "162.158.0.0/15",
+            "104.16.0.0/13",
+            "104.24.0.0/14",
+            "172.64.0.0/13",
+            "131.0.72.0/22",
+        ]
+
+        for ip_range in cloudflare_ip_ranges:
+            self.alb_sg.add_ingress_rule(
+                peer=ec2.Peer.ipv4(ip_range),
+                connection=ec2.Port.tcp(80),
+                description=f"HTTP desde Cloudflare IP {ip_range}",
+            )
+            self.alb_sg.add_ingress_rule(
+                peer=ec2.Peer.ipv4(ip_range),
+                connection=ec2.Port.tcp(443),
+                description=f"HTTPS desde Cloudflare IP {ip_range}",
+            )
     
         # ── AppServersSG  ────────────────────────────────────────────────
         self.appservers_sg = ec2.SecurityGroup(
