@@ -35,15 +35,13 @@ class NetworkingStack(Stack):
         NAT Gateway:
             - 1 NAT Gateway (AZ-1a, Subnet Pública AppVPC) + EIP
 
-        Transit Gateway:
-            - TransitGateway
-            - TGW Attachment -> BastionVPC
-            - TGW Attachment -> AppVPC
+        VPC Peering:
+            - PeeringConnection: BastionVPC <-> AppVPC
 
         Route Tables:
-            - RT-Bastion-Public  (0.0.0.0/0 -> IGW-BastionVPC, 172.32.0.0/16 -> TGW)
+            - RT-Bastion-Public  (0.0.0.0/0 -> IGW-BastionVPC, 192.168.0.0/16 -> PeeringConnection)
             - RT-App-Public      (0.0.0.0/0 -> IGW-AppVPC)
-            - RT-App-Private     (0.0.0.0/0 -> NAT Gateway, 192.168.0.0/16 -> TGW)
+            - RT-App-Private     (0.0.0.0/0 -> NAT Gateway, 172.32.0.0/16 -> PeeringConnection)
 
         VPC Flow Logs:
             - CloudWatch Log Group: /vpc/flow-logs
@@ -104,41 +102,70 @@ class NetworkingStack(Stack):
             ],
         )
 
-        #-- Transit Gateway ---------------------------------------------
-        tgw = ec2.CfnTransitGateway(self, "TransitGateway",
-            description="TGW BastionVPC <-> AppVPC",
-            amazon_side_asn=64512,
-            auto_accept_shared_attachments="enable",
-            tags=[{"key": "Name", "value": "TransitGateway"}]
-        )
-        tgw_attachment_app = ec2.CfnTransitGatewayAttachment(self, "TGWAttachmentApp",
-            transit_gateway_id=tgw.ref,
-            vpc_id=self.vpc.vpc_id,
-            subnet_ids=[s.subnet_id for s in self.private_subnets],
-        )
-        tgw_attachment_bastion = ec2.CfnTransitGatewayAttachment(self, "TGWAttachmentBastion",
-            transit_gateway_id=tgw.ref,
-            vpc_id=self.bastion_vpc.vpc_id,
-            subnet_ids=[self.bastion_vpc.public_subnets[0].subnet_id],
+        # #-- Transit Gateway ---------------------------------------------
+        # tgw = ec2.CfnTransitGateway(self, "TransitGateway",
+        #     description="TGW BastionVPC <-> AppVPC",
+        #     amazon_side_asn=64512,
+        #     auto_accept_shared_attachments="enable",
+        #     tags=[{"key": "Name", "value": "TransitGateway"}]
+        # )
+        # tgw_attachment_app = ec2.CfnTransitGatewayAttachment(self, "TGWAttachmentApp",
+        #     transit_gateway_id=tgw.ref,
+        #     vpc_id=self.vpc.vpc_id,
+        #     subnet_ids=[s.subnet_id for s in self.private_subnets],
+        # )
+        # tgw_attachment_bastion = ec2.CfnTransitGatewayAttachment(self, "TGWAttachmentBastion",
+        #     transit_gateway_id=tgw.ref,
+        #     vpc_id=self.bastion_vpc.vpc_id,
+        #     subnet_ids=[self.bastion_vpc.public_subnets[0].subnet_id],
+        # )
+
+
+        # #-- Routes ---------------------------------------------
+        # # Ruta en Bastion Public: 192.168.0.0/16 -> TGW
+        # ec2.CfnRoute(self, "BastionToAppViaTGW",
+        #     route_table_id=self.bastion_vpc.public_subnets[0].route_table.route_table_id,
+        #     destination_cidr_block="192.168.0.0/16",
+        #     transit_gateway_id=tgw.ref,
+        # ).add_dependency(tgw_attachment_bastion)
+
+        # # Ruta en App Private: 172.32.0.0/16 -> TGW
+        # for i, subnet in enumerate(self.private_subnets):
+        #     ec2.CfnRoute(self, f"AppPrivateToBasionViaTGW{i}",
+        #         route_table_id=subnet.route_table.route_table_id,
+        #         destination_cidr_block="172.32.0.0/16",
+        #         transit_gateway_id=tgw.ref,
+        #     ).add_dependency(tgw_attachment_app)
+
+        #-- VPC Peering ---------------------------------------------
+        peering_connection = ec2.CfnVPCPeeringConnection(
+            self, "BastionAppPeering",
+            vpc_id=self.vpc.vpc_id,               # Accepter: AppVPC
+            peer_vpc_id=self.bastion_vpc.vpc_id,  # Requester: BastionVPC
+            # peer_owner_id=self.account,  # Opcional si ambas VPCs están en la misma cuenta
+            # peer_region=self.region,  # Opcional si ambas VPCs están en la misma región
+            tags=[{"key": "Name", "value": "BastionVPC-AppVPC-Peering"}]
         )
 
         #-- Routes ---------------------------------------------
-        # Ruta en Bastion Public: 192.168.0.0/16 -> TGW
-        ec2.CfnRoute(self, "BastionToAppViaTGW",
+        # Ruta en Bastion Public: 192.168.0.0/16 -> Peering
+        # NOTA: Logical ID igual al original (TGW) para que CF haga UPDATE y no CREATE
+        ec2.CfnRoute(
+            self, "BastionToAppViaTGW",
             route_table_id=self.bastion_vpc.public_subnets[0].route_table.route_table_id,
             destination_cidr_block="192.168.0.0/16",
-            transit_gateway_id=tgw.ref,
-        ).add_dependency(tgw_attachment_bastion)
-
-        # Ruta en App Private: 172.32.0.0/16 -> TGW
+            vpc_peering_connection_id=peering_connection.ref,
+        )
+ 
+        # Ruta en App Private: 172.32.0.0/16 -> Peering
+        # NOTA: Logical IDs iguales a los originales (TGW) para que CF haga UPDATE y no CREATE
         for i, subnet in enumerate(self.private_subnets):
-            ec2.CfnRoute(self, f"AppPrivateToBasionViaTGW{i}",
+            ec2.CfnRoute(
+                self, f"AppPrivateToBasionViaTGW{i}",  # typo "Basion" intencional: idéntico al original
                 route_table_id=subnet.route_table.route_table_id,
                 destination_cidr_block="172.32.0.0/16",
-                transit_gateway_id=tgw.ref,
-            ).add_dependency(tgw_attachment_app)
-
-        
+                vpc_peering_connection_id=peering_connection.ref,
+            )
 
         #-- VPC Flow Logs ----------------------------------------------
         log_group = logs.LogGroup(self, "VpcFlowLogsGroup",
